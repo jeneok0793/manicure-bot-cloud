@@ -8,5 +8,4 @@ async def set_webhook():
     print("✅ Webhook установлен")
     await bot.session.close()
 
-if __name__ == "__main__":
-    asyncio.run(set_webhook())
+asyncio.run(set_webhook())
