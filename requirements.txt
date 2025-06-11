@@ -1,6 +1,5 @@
-aiogram==3.10.0
+aiogram==3.4.1
 aiohttp
 gspread
 google-auth
-python-dotenv
 pytz
