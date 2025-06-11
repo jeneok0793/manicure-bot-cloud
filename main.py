@@ -1,26 +1,18 @@
-import asyncio
-from aiohttp import web
 from aiogram import Bot, Dispatcher
-from aiogram.enums import ParseMode
-from aiogram.client.default import DefaultBotProperties
-
+from aiogram.web import App
+from aiogram.fsm.storage.memory import MemoryStorage
 from config import BOT_TOKEN
-from handlers import router
+from handlers import register_handlers
+import logging
 
-# Обязательный порт для Cloud Run
-import os
-PORT = int(os.getenv("PORT", 8080))
+# Настройка логов
+logging.basicConfig(level=logging.INFO)
 
-async def on_startup(app):
-    bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    dp = Dispatcher()
-    dp.include_router(router)
-    app["bot"] = bot
-    app["dp"] = dp
-    await dp.start_polling(bot)
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher(storage=MemoryStorage())
 
-app = web.Application()
-app.on_startup.append(on_startup)
+# Регистрируем обработчики
+register_handlers(dp)
 
-if __name__ == "__main__":
-    web.run_app(app, host="0.0.0.0", port=PORT)
+# Создаём web-приложение
+app = App(dispatcher=dp, bot=bot)
