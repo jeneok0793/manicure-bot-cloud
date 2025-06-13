@@ -1,12 +1,10 @@
 import logging
 import os
 from aiohttp import web
-
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.memory import MemoryStorage
-
 from handlers import router
 from config import BOT_TOKEN, WEBHOOK_URL
 
@@ -31,15 +29,16 @@ async def handle_webhook(request):
     await dp.feed_update(bot, update)
     return web.Response()
 
-def main():
+async def create_app():
     app = web.Application()
     app["bot"] = bot
     app["dp"] = dp
     app.router.add_post("/webhook", handle_webhook)
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
-    port = int(os.environ.get("PORT", 8080))
-    web.run_app(app, host="0.0.0.0", port=port)
+    return app
 
 if __name__ == "__main__":
-    main()
+    app = asyncio.run(create_app())
+    port = int(os.environ.get("PORT", 8080))
+    web.run_app(app, host="0.0.0.0", port=port)
