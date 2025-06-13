@@ -3,6 +3,7 @@ from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 
 router = Router()
 
+# Главное меню клиента
 client_menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="📅 Записаться")],
@@ -12,6 +13,7 @@ client_menu = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
+# Меню администратора
 admin_menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="📆 Записи на сегодня")],
@@ -54,6 +56,7 @@ async def my_bookings(message: Message):
 async def cancel_booking(message: Message):
     await message.answer("Ты уверена, что хочешь отменить запись на 15 июня в 13:00?\n\n🔁 Да / ❌ Нет")
 
+# Админ-функции (заглушки)
 @router.message(F.text == "📆 Записи на сегодня")
 async def today_records(message: Message):
     await message.answer("Сегодня записаны:\n– Анна, 12:00\n– Ирина, 14:00\nБесплатные:\n– Марина, 16:00")
