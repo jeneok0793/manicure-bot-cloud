@@ -29,7 +29,7 @@ def main():
     app = web.Application()
     app["bot"] = bot
     app["dp"] = dp
-    app.router.add_post("/webhook", dp.webhook_handler)
+    app.router.add_post("/webhook", dp.webhook_handler)  # <<< ЭТО ОЧЕНЬ ВАЖНО
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
     port = int(os.environ.get("PORT", 8080))
