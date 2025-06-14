@@ -1,16 +1,15 @@
-# force redeploy
 import logging
 import os
 from aiohttp import web
 
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 from handlers import router
-from config import BOT_TOKEN, WEBHOOK_URL
+from config import BOT_TOKEN
 
 logging.basicConfig(level=logging.INFO)
 
@@ -19,8 +18,7 @@ dp = Dispatcher(storage=MemoryStorage())
 dp.include_router(router)
 
 async def on_startup(dispatcher: Dispatcher, bot: Bot):
-    await bot.set_webhook(f"{WEBHOOK_URL}/webhook", drop_pending_updates=True)
-    logging.info("🚀 Бот запущен и webhook установлен!")
+    logging.info("🚀 Бот запущен!")
 
 async def on_shutdown(dispatcher: Dispatcher, bot: Bot):
     await bot.session.close()
