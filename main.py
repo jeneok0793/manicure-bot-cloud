@@ -9,7 +9,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 from handlers import router
-from config import BOT_TOKEN, WEBHOOK_URL
+from config import BOT_TOKEN
 
 logging.basicConfig(level=logging.INFO)
 
@@ -18,13 +18,11 @@ dp = Dispatcher(storage=MemoryStorage())
 dp.include_router(router)
 
 async def on_startup(dispatcher: Dispatcher, bot: Bot):
-    await bot.set_webhook(f"{WEBHOOK_URL}/webhook", drop_pending_updates=True)
-    logging.info("✅ Webhook установлен!")
+    logging.info("🚀 Бот запущен!")
 
 async def on_shutdown(dispatcher: Dispatcher, bot: Bot):
-    await bot.delete_webhook()
     await bot.session.close()
-    logging.info("🛑 Webhook удалён!")
+    logging.info("🛑 Бот остановлен.")
 
 def main():
     app = web.Application()
