@@ -1,235 +1,173 @@
+# handlers.py
 
-# ✅ handlers.py v2 — ФИНАЛЬНАЯ ВЕРСИЯ
-# Включает:
-# - FSM запись + скидка 5+1
-# - "📋 Мои записи" + счётчик
-# - "❌ Отмена записи" + перезапись
-# - Админ-панель: записи на сегодня, итоги
-# - 📢 Рассылка текста и 📸 фото-рассылка
-# - ⚙️ Настройки (адрес, прайс, график) через FSM
-# 🔒 Всё по эталону, проверено и собрано под ключ
+from aiogram import Router, F
+from aiogram.types import Message, CallbackQuery, InputMediaPhoto
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.filters import CommandStart, Command
+from google_sheets import get_available_slots, book_slot, cancel_booking, get_user_bookings, get_todays_records, get_discount_status, get_total_visits, get_admin_stats, add_free_client, get_all_clients, update_setting, get_settings
+from config import ADMIN_CHAT_ID
 
-# === ❌ Отмена и 🔁 Перезапись ===
-@router.message(F.text == "❌ Отменить запись")
-async def cancel_or_reschedule(message: types.Message, state: FSMContext):
-    sheet = get_worksheet("Записи")
-    all_data = sheet.get_all_records()
-    user_records = [r for r in all_data if str(r["Telegram ID"]) == str(message.from_user.id) and r["Отмена"].lower() != "да"]
+router = Router()
 
-    if not user_records:
-        await message.answer("📭 У вас нет активных записей.")
+# FSM для отмены
+class CancelState(StatesGroup):
+    waiting_confirmation = State()
+
+# Главная клавиатура клиента
+def main_keyboard():
+    return ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="📅 Записаться")],
+        [KeyboardButton(text="🗓 Мои записи"), KeyboardButton(text="❌ Отменить запись")],
+        [KeyboardButton(text="ℹ️ О мастере")]
+    ], resize_keyboard=True)
+
+# Админская клавиатура
+def admin_keyboard():
+    return ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="📊 Записи на сегодня"), KeyboardButton(text="💰 Итоги дня")],
+        [KeyboardButton(text="🎁 Добавить бесплатного клиента")],
+        [KeyboardButton(text="📨 Рассылка"), KeyboardButton(text="⚙️ Настройки")]
+    ], resize_keyboard=True)
+
+# Приветствие
+@router.message(CommandStart())
+async def start_handler(message: Message, state: FSMContext):
+    if str(message.from_user.id) == str(ADMIN_CHAT_ID):
+        await message.answer("Добро пожаловать, админ!", reply_markup=admin_keyboard())
+    else:
+        await message.answer(
+            "👋 Привет! Я бот записи на маникюр 💅
+
+"
+            "С моей помощью ты сможешь:
+"
+            "🗓 выбрать удобное время
+"
+            "⏰ получать напоминания
+"
+            "📍 узнать адрес и цены
+
+"
+            "Жми кнопку ниже 👇",
+            reply_markup=main_keyboard()
+        )
+
+# Запись
+@router.message(F.text == "📅 Записаться")
+async def choose_date(message: Message, state: FSMContext):
+    slots = get_available_slots()
+    if not slots:
+        await message.answer("На ближайшие дни мест нет. Хотите оставить заявку на первую свободную дату?", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Да, хочу", callback_data="waitlist_yes")],
+            [InlineKeyboardButton(text="❌ Нет, позже", callback_data="waitlist_no")]
+        ]))
         return
+    text = "📅 Доступные слоты:
 
-    last = user_records[-1]
-    await state.update_data(cancel_date=last["Дата"], cancel_time=last["Время"])
-    markup = types.ReplyKeyboardMarkup(
-        keyboard=[[types.KeyboardButton(text="✅ Да, отменить")], [types.KeyboardButton(text="🔁 Перезаписаться")]],
-        resize_keyboard=True
-    )
+"
+    for date, times in slots.items():
+        text += f"<b>{date}</b>:
+" + ", ".join(times) + "
+
+"
+    await message.answer(text, parse_mode="HTML")
+
+# Просмотр записей
+@router.message(F.text == "🗓 Мои записи")
+async def view_bookings(message: Message, state: FSMContext):
+    bookings = get_user_bookings(message.from_user.id)
+    if not bookings:
+        await message.answer("У вас пока нет записей.")
+        return
+    text = "📌 Ваши записи:
+
+"
+    for b in bookings:
+        text += f"{b['date']} в {b['time']} — {b['service']} ({b['price']} лей)
+"
+    visits = get_total_visits(message.from_user.id)
+    to_discount = 6 - (visits % 6)
+    if to_discount == 1:
+        text += "
+🎉 Следующая процедура со скидкой 10%!"
+    else:
+        text += f"
+💡 У вас уже {visits % 6} процедур — осталось {to_discount} до скидки 10%!"
+    await message.answer(text)
+
+# Отмена записи
+@router.message(F.text == "❌ Отменить запись")
+async def cancel_booking_start(message: Message, state: FSMContext):
+    bookings = get_user_bookings(message.from_user.id)
+    if not bookings:
+        await message.answer("У вас нет активных записей.")
+        return
+    b = bookings[-1]
+    await state.set_state(CancelState.waiting_confirmation)
     await message.answer(
         f"Вы хотите отменить запись:
-📅 {last['Дата']} в {last['Время']} — {last['Услуга']}?
-",
-        reply_markup=markup
-    )
+📅 {b['date']} в {b['time']}
 
-@router.message(F.text == "✅ Да, отменить")
-async def confirm_cancel(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    sheet = get_worksheet("Записи")
-    values = sheet.get_all_values()
-    for i, row in enumerate(values):
-        if row[0] == str(message.from_user.id) and row[6] == data["cancel_date"] and row[7] == data["cancel_time"]:
-            sheet.update_cell(i+1, 12, "да")  # колонка "Отмена"
-            graf = get_worksheet("График")
-            graf_values = graf.get_all_values()
-            for j, g in enumerate(graf_values):
-                if g[0] == data["cancel_date"] and g[1] == data["cancel_time"]:
-                    graf.update_cell(j+1, 3, "свободно")
-                    break
-            break
-    await message.answer("❌ Запись отменена.", reply_markup=client_menu())
-    await state.clear()
-
-@router.message(F.text == "🔁 Перезаписаться")
-async def reschedule(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    await confirm_cancel(message, state)
-    await start_booking(message, state)  # повторно запустить FSM
-
-# === 📸 Фото-рассылка ===
-@router.message(F.photo, F.chat.id == ADMIN_CHAT_ID)
-async def receive_photo(message: types.Message, state: FSMContext):
-    await state.set_state(BookingFSM.photo_caption)
-    await state.update_data(photo_id=message.photo[-1].file_id)
-    await message.answer("📝 Введите подпись для фото-рассылки:")
-
-@router.message(BookingFSM.photo_caption)
-async def send_photo_broadcast(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    photo_id = data.get("photo_id")
-    caption = message.text
-
-    users = set()
-    sheet = get_worksheet("Клиенты")
-    for row in sheet.get_all_records():
-        users.add(int(row["Telegram ID"]))
-
-    for uid in users:
-        try:
-            await message.bot.send_photo(uid, photo=photo_id, caption=caption, reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text="✏️ Записаться", url="https://t.me/ManiCloudBot")]]
-            ))
-        except:
-            continue
-
-    await message.answer("📸 Рассылка с фото завершена ✅")
-    await state.clear()
-
-# === ⚙️ Настройки (заготовка FSM, логика будет добавлена при необходимости) ===
-@router.message(F.text == "⚙️ Настройки")
-async def settings_menu(message: types.Message):
-    await message.answer("⚙️ Настройки:
-(в разработке)
-— Изменение адреса
-— Изменение прайса
-— Изменение графика")
-
-# === FSM для ⚙️ Настройки ===
-class SettingsFSM(StatesGroup):
-    choosing = State()
-    new_address = State()
-    edit_price_service = State()
-    edit_price_value = State()
-    set_work_days = State()
-
-@router.message(F.text == "⚙️ Настройки")
-async def settings_menu(message: types.Message, state: FSMContext):
-    markup = types.ReplyKeyboardMarkup(
-        keyboard=[
-            [types.KeyboardButton(text="🏠 Изменить адрес")],
-            [types.KeyboardButton(text="💰 Изменить прайс")],
-            [types.KeyboardButton(text="🗓 Изменить график")],
-            [types.KeyboardButton(text="⬅️ Назад")]
-        ],
-        resize_keyboard=True
-    )
-    await state.set_state(SettingsFSM.choosing)
-    await message.answer("⚙️ Что вы хотите изменить?", reply_markup=markup)
-
-@router.message(SettingsFSM.choosing, F.text == "🏠 Изменить адрес")
-async def change_address(message: types.Message, state: FSMContext):
-    await state.set_state(SettingsFSM.new_address)
-    await message.answer("🏠 Введите новый адрес:")
-
-@router.message(SettingsFSM.new_address)
-async def save_new_address(message: types.Message, state: FSMContext):
-    settings = get_worksheet("Настройки")
-    settings.update("B2", message.text)
-    await message.answer("✅ Адрес обновлён!", reply_markup=admin_menu())
-    await state.clear()
-
-@router.message(SettingsFSM.choosing, F.text == "💰 Изменить прайс")
-async def start_price_edit(message: types.Message, state: FSMContext):
-    services = get_services()
-    markup = types.ReplyKeyboardMarkup(
-        keyboard=[[types.KeyboardButton(text=service)] for service in services],
-        resize_keyboard=True
-    )
-    await state.set_state(SettingsFSM.edit_price_service)
-    await message.answer("💅 Выберите услугу для изменения цены:", reply_markup=markup)
-
-@router.message(SettingsFSM.edit_price_service)
-async def ask_new_price(message: types.Message, state: FSMContext):
-    await state.update_data(service=message.text)
-    await state.set_state(SettingsFSM.edit_price_value)
-    await message.answer("💰 Введите новую цену (только число):")
-
-@router.message(SettingsFSM.edit_price_value)
-async def save_new_price(message: types.Message, state: FSMContext):
-    try:
-        price = int(message.text)
-        data = await state.get_data()
-        service = data.get("service")
-        sheet = get_worksheet("Услуги")
-        rows = sheet.get_all_values()
-        for i, row in enumerate(rows):
-            if row[0] == service:
-                sheet.update_cell(i + 1, 2, price)
-                await message.answer(f"✅ Цена для «{service}» обновлена на {price} лей.", reply_markup=admin_menu())
-                await state.clear()
-                return
-        await message.answer("⚠️ Услуга не найдена.", reply_markup=admin_menu())
-    except:
-        await message.answer("❌ Ошибка. Введите число.")
-
-@router.message(SettingsFSM.choosing, F.text == "🗓 Изменить график")
-async def edit_schedule_note(message: types.Message, state: FSMContext):
-    await message.answer("🗓 Изменение графика вручную доступно в листе «График» Google Таблицы.
-"
-                         "Вы можете изменить слоты или воспользоваться скриптом генерации расписания.")
-    await state.clear()
-
-@router.message(F.text == "⬅️ Назад")
-async def back_to_admin(message: types.Message, state: FSMContext):
-    await state.clear()
-    await message.answer("↩️ Возвращаюсь в админ-панель", reply_markup=admin_menu())
-
-# === FSM: Бесплатный клиент ===
-class FreeClientFSM(StatesGroup):
-    name = State()
-    surname = State()
-    visits = State()
-
-@router.message(F.text == "🆓 Бесплатный клиент")
-async def add_free_client_start(message: types.Message, state: FSMContext):
-    await state.set_state(FreeClientFSM.name)
-    await message.answer("👤 Введите имя клиента:")
-
-@router.message(FreeClientFSM.name)
-async def get_free_surname(message: types.Message, state: FSMContext):
-    await state.update_data(name=message.text)
-    await state.set_state(FreeClientFSM.surname)
-    await message.answer("👤 Введите фамилию клиента:")
-
-@router.message(FreeClientFSM.surname)
-async def get_free_visits(message: types.Message, state: FSMContext):
-    await state.update_data(surname=message.text)
-    await state.set_state(FreeClientFSM.visits)
-    await message.answer("🔢 Введите количество бесплатных посещений:")
-
-@router.message(FreeClientFSM.visits)
-async def save_free_client(message: types.Message, state: FSMContext):
-    try:
-        visits = int(message.text)
-        data = await state.get_data()
-        sheet = get_worksheet("Клиенты")
-        sheet.append_row([
-            str(message.from_user.id),
-            data["name"],
-            data["surname"],
-            "-",  # телефон
-            visits,
-            "-",
-            "да"
+Подтвердите действие:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Да, отменить", callback_data="cancel_yes")],
+            [InlineKeyboardButton(text="🔁 Перезаписаться", callback_data="reschedule")],
+            [InlineKeyboardButton(text="↩️ Назад", callback_data="cancel_no")]
         ])
-        await message.answer(f"🎁 Клиент {data['name']} {data['surname']} добавлен с {visits} бесплатными посещениями.",
-                             reply_markup=admin_menu())
-        await state.clear()
-    except:
-        await message.answer("❌ Введите число для количества посещений.")
+    )
 
-# === 💅 Прайс-лист ===
-@router.message(F.text == "💅 Прайс-лист")
-async def show_price_list(message: types.Message):
-    services = get_services()
-    text = "💅 Актуальный прайс:
+@router.callback_query(CancelState.waiting_confirmation, F.data == "cancel_yes")
+async def confirm_cancel(call: CallbackQuery, state: FSMContext):
+    cancel_booking(call.from_user.id)
+    await call.message.edit_text("Запись отменена.")
+    await state.clear()
+
+@router.callback_query(CancelState.waiting_confirmation, F.data == "reschedule")
+async def reschedule(call: CallbackQuery, state: FSMContext):
+    cancel_booking(call.from_user.id)
+    await call.message.edit_text("Хорошо, давайте перезапишемся!")
+    await state.clear()
+    await choose_date(call.message, state)
+
+@router.callback_query(CancelState.waiting_confirmation, F.data == "cancel_no")
+async def cancel_back(call: CallbackQuery, state: FSMContext):
+    await call.message.edit_text("Действие отменено.")
+    await state.clear()
+
+# О мастере
+@router.message(F.text == "ℹ️ О мастере")
+async def about_master(message: Message, state: FSMContext):
+    settings = get_settings()
+    text = f"📍 Адрес: {settings['address']}
+
+💅 Актуальный прайс — мастер Евгения:
 
 "
-    for name, price in services.items():
-        emoji = "💎" if "наращ" in name.lower() or "коррек" in name.lower() else "🦶" if "педикюр" in name.lower() else "💅"
-        text += f"{emoji} {name} — {price} лей
+    text += (
+        "💎 Наращивание ногтей — 280 лей
 "
-    text += "
-🎁 Каждая 6-я процедура — со скидкой 10%"
+        "💎 Коррекция ногтей — 240 лей
+"
+        "💅 Покрытие гель-лаком — 210 лей
+"
+        "🦶 Педикюр — 250 лей
+"
+        "🦶 Педикюр + обработка пяточек — 320 лей
+
+"
+        "🎁 Каждая 6-я процедура — со скидкой 10% по системе 5+1"
+    )
     await message.answer(text)
+
+# Админ
+@router.message(F.text == "/admin")
+async def admin_panel(message: Message, state: FSMContext):
+    if str(message.from_user.id) != str(ADMIN_CHAT_ID):
+        await message.answer("Нет доступа.")
+        return
+    await message.answer("Панель администратора:", reply_markup=admin_keyboard())
+
+# Остальные функции админа (сегодняшние записи, итоги, рассылка, добавление клиента и т.п.)
+# вставляются ниже — мы продолжим их при необходимости
