@@ -7,5 +7,4 @@ COPY . .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-CMD ["python", "-c", "import http.server; http.server.test(port=8080)"]
- 
+CMD ["python", "main.py"]
