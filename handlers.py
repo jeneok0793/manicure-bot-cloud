@@ -1,4 +1,5 @@
 # handlers.py
+# Обновление интерфейса от 14 июня
 
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InputMediaPhoto
