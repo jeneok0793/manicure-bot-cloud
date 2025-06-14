@@ -2,5 +2,5 @@ BOT_TOKEN = "7779510296:AAEG9nhmGAUURbIlkdV49VkWMc-ENDQ0xu0"
 WEBHOOK_URL = "https://manicure-bot-cloud2-764859565904.europe-west3.run.app"
 
 SPREADSHEET_ID = "18EeVqLv9BUuwcW-HeMizPMOmoFPrJz7JsVShivC_Pfo"
-SERVICE_ACCOUNT_FILE = "/app/key.json"  # ключ монтируется сюда через Secret Manager
+SERVICE_ACCOUNT_FILE = "/app/key.json"
 ADMIN_CHAT_ID = 7185312775
