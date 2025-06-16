@@ -1,6 +1,5 @@
-BOT_TOKEN = "7779510296:AAEG9nhmGAUURbIlkdV49VkWMc-ENDQ0xu0"
-WEBHOOK_URL = "https://manicure-bot-cloud-764859565904.europe-west3.run.app"
-
+BOT_TOKEN = "7779510296:AAHz9SMXDUBuX19IzBTPMCCbCos3VrmdLUY"
+WEBHOOK_URL = "https://manicure-bot-cloud-764859565904.europe-west3.run.app/webhook"
 SPREADSHEET_ID = "18EeVqLv9BUuwcW-HeMizPMOmoFPrJz7JsVShivC_Pfo"
-SERVICE_ACCOUNT_FILE = "/app/key.json"  # путь в Cloud Run после монтирования секрета
+GOOGLE_KEY_PATH = "key.json"
 ADMIN_CHAT_ID = 7185312775
