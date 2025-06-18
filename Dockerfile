@@ -7,5 +7,6 @@ COPY . .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-CMD ["python", "main.py"]
+CMD ["sh", "-c", "echo ===== LIST ===== && ls -l && echo ===== MAIN ===== && cat main.py && echo ===== DONE ====="]
+
 
