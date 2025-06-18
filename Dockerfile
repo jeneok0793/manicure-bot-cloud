@@ -1,14 +1,16 @@
 FROM python:3.11-slim
 
-# Устанавливаем рабочую директорию внутри контейнера
 WORKDIR /app
 
-# Копируем все файлы проекта в контейнер
+COPY requirements.txt ./requirements.txt
+RUN echo "===== requirements.txt =====" && cat requirements.txt
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . .
 
-# Устанавливаем зависимости
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Проверка наличия pytz и вывод содержимого директории
+RUN echo "===== Содержимое /app =====" && ls -la /app
+RUN python -c "import pytz; print('✅ pytz установлен и работает')"
 
-# Запуск бота
 CMD ["python", "main.py"]
