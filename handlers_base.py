@@ -5,4 +5,4 @@ router = Router()
 
 @router.message(F.text == "/start")
 async def start_handler(message: Message):
-    await message.answer("👋 Привет! Бот успешно работает! ✅")
+    await message.answer("Бот работает! ✅")
