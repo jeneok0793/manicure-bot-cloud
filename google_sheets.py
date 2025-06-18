@@ -1,14 +1,16 @@
 import gspread
 from google.oauth2.service_account import Credentials
-from config import SPREADSHEET_ID, SERVICE_ACCOUNT_FILE as GOOGLE_KEY_PATH
+from config import SPREADSHEET_ID, GOOGLE_KEY_PATH
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-creds = Credentials.from_service_account_file(GOOGLE_KEY_PATH, scopes=SCOPES)
-client = gspread.authorize(creds)
-sheet = client.open_by_key(SPREADSHEET_ID)
+
+def authorize():
+    creds = Credentials.from_service_account_file(GOOGLE_KEY_PATH, scopes=SCOPES)
+    client = gspread.authorize(creds)
+    return client.open_by_key(SPREADSHEET_ID)
 
 def get_worksheet(name):
-    return sheet.worksheet(name)
+    return authorize().worksheet(name)
 
 def read_cell(sheet_name, cell):
     return get_worksheet(sheet_name).acell(cell).value
