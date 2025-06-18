@@ -1,17 +1,12 @@
 import gspread
 from google.oauth2.service_account import Credentials
-from config import SERVICE_ACCOUNT_FILE, SPREADSHEET_ID
+from config import SPREADSHEET_ID, GOOGLE_KEY_PATH
 
-scope = ["https://www.googleapis.com/auth/spreadsheets"]
-
-try:
-    creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=scope)
-    client = gspread.authorize(creds)
-    sheet = client.open_by_key(SPREADSHEET_ID)
-except Exception as e:
-    import sys
-    print("❌ Google Sheets ERROR:", e, file=sys.stderr)
-    raise
-
-def get_worksheet(name):
-    return sheet.worksheet(name)
+def get_service():
+    credentials = Credentials.from_service_account_file(
+        GOOGLE_KEY_PATH,
+        scopes=["https://www.googleapis.com/auth/spreadsheets"]
+    )
+    client = gspread.authorize(credentials)
+    spreadsheet = client.open_by_key(SPREADSHEET_ID)
+    return spreadsheet
