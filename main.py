@@ -4,7 +4,8 @@ from aiogram import Bot, Dispatcher
 from aiogram.types import Update
 from aiohttp import web
 from config import BOT_TOKEN
-from handlers import router
+from handlers_base import router  # вместо from handlers import router
+
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
