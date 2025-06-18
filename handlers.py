@@ -25,6 +25,7 @@ from google_sheets import (
 from config import ADMIN_CHAT_ID
 
 router = Router()
+# Force rebuild
 
 # FSM для отмены
 class CancelState(StatesGroup):
