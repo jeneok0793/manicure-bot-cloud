@@ -1,41 +1,33 @@
-import os
 import logging
-from aiohttp import web
-
+import asyncio
 from aiogram import Bot, Dispatcher
-from aiogram.enums import ParseMode
-from aiogram.client.default import DefaultBotProperties
-from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
-
+from aiogram.types import Update
+from aiohttp import web
 from config import BOT_TOKEN, WEBHOOK_URL
 from handlers import router
 
-logging.basicConfig(level=logging.INFO)
-
-bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-dp = Dispatcher(storage=MemoryStorage())
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
 dp.include_router(router)
 
-async def on_startup(dispatcher: Dispatcher, bot: Bot):
-    await bot.set_webhook(f"{WEBHOOK_URL}/webhook", drop_pending_updates=True)
-    logging.info("✅ Webhook установлен")
+async def on_startup(app: web.Application):
+    await bot.set_webhook(WEBHOOK_URL)
+    logging.info("✅ Webhook set successfully")
 
-async def on_shutdown(dispatcher: Dispatcher, bot: Bot):
-    await bot.delete_webhook()
-    await bot.session.close()
-    logging.info("🛑 Webhook удалён")
+async def handle(request):
+    try:
+        data = await request.json()
+        update = Update.model_validate(data)
+        await dp.feed_update(bot, update)
+        return web.Response()
+    except Exception as e:
+        logging.error(f"❌ Error handling update: {e}")
+        return web.Response(status=500)
 
-def main():
-    app = web.Application()
-    dp.startup.register(on_startup)
-    dp.shutdown.register(on_shutdown)
-
-    SimpleRequestHandler(dispatcher=dp, bot=bot).register(app, path="/webhook")
-    setup_application(app, dp, bot=bot)
-
-    port = int(os.environ.get("PORT", 8080))
-    web.run_app(app, host="0.0.0.0", port=port)
+app = web.Application()
+app.router.add_post("/", handle)
+app.on_startup.append(on_startup)
 
 if __name__ == "__main__":
-    main()
+    logging.basicConfig(level=logging.INFO)
+    web.run_app(app, port=8080)
