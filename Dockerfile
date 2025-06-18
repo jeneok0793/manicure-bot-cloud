@@ -5,8 +5,6 @@ WORKDIR /app
 COPY . .
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir aiohttp
 
-CMD ["sh", "-c", "echo ===== LIST ===== && ls -l && echo ===== MAIN ===== && cat main.py && echo ===== DONE ====="]
-
-
+CMD ["python", "main.py"]

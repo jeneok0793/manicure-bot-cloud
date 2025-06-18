@@ -1,10 +1,11 @@
+import aiohttp
 from aiohttp import web
 
-async def handler(request):
-    return web.Response(text="✅ Бот работает")
+async def handle(request):
+    return web.Response(text="I'm alive!")
 
 app = web.Application()
-app.router.add_get("/", handler)
+app.add_routes([web.get('/', handle)])
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     web.run_app(app, port=8080)
