@@ -6,38 +6,38 @@ from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 from handlers import router
-from config import BOT_TOKEN, WEBHOOK_URL
+from config import BOT_TOKEN
 
+# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
+# Инициализация бота и диспетчера
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher(storage=MemoryStorage())
 dp.include_router(router)
 
+# Запускается при старте контейнера
 async def on_startup(dispatcher: Dispatcher, bot: Bot):
-    await bot.set_webhook(f"{WEBHOOK_URL}/webhook", drop_pending_updates=True)
-    logging.info("✅ Webhook установлен!")
+    logging.info("🚀 Бот запущен!")
 
+# Вызывается при остановке контейнера
 async def on_shutdown(dispatcher: Dispatcher, bot: Bot):
-    await bot.delete_webhook()
     await bot.session.close()
-    logging.info("🛑 Webhook удалён!")
-
-async def handle_webhook(request):
-    data = await request.json()
-    update = bot.session._client._build_update(data)
-    await dp.feed_update(bot, update)
-    return web.Response()
+    logging.info("🛑 Бот остановлен.")
 
 def main():
     app = web.Application()
-    app["bot"] = bot
-    app["dp"] = dp
-    app.router.add_post("/webhook", handle_webhook)
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
+
+    # Регистрируем обработчик вебхука
+    SimpleRequestHandler(dispatcher=dp, bot=bot).register(app, path="/webhook")
+    setup_application(app, dp, bot=bot)
+
+    # Cloud Run требует порт 8080
     port = int(os.environ.get("PORT", 8080))
     web.run_app(app, host="0.0.0.0", port=port)
 
